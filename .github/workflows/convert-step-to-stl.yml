@@ -68,22 +68,18 @@ jobs:
             fi
           fi
       
-      - name: Install FreeCAD headless via conda
+      - name: Install OpenCASCADE and pythonocc
         if: steps.step-files.outputs.has_files == 'true'
         run: |
-          # Install miniconda
-          wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-          bash miniconda.sh -b -p $HOME/miniconda
-          export PATH="$HOME/miniconda/bin:$PATH"
+          # Install OpenCASCADE (the engine behind STEP files)
+          sudo apt-get update
+          sudo apt-get install -y libopencascade-dev python3-opencascade
           
-          # Install FreeCAD headless (no GUI dependencies)
-          conda install -c conda-forge freecad -y
-          
-          # Add to PATH for this session
-          echo "$HOME/miniconda/bin" >> $GITHUB_PATH
+          # Install pythonocc-core for Python bindings
+          pip install pythonocc-core
           
           # Verify installation
-          python -c "import FreeCAD; print('FreeCAD headless installed successfully')"
+          python -c "from OCC.Core import STEPControl_Reader; print('OpenCASCADE installed successfully')"
       
       - name: Convert STEP to STL
         if: steps.step-files.outputs.has_files == 'true'
