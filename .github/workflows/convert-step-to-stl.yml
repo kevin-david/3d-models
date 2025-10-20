@@ -24,7 +24,6 @@ env:
   
   # FreeCAD installation
   FREECAD_VERSION: 1.0.2        # Latest stable version
-  FREECAD_METHOD: appimage
   
   # Git commit settings
   COMMIT_MESSAGE: "Auto-generate STL files from STEP files [skip ci]"
@@ -69,18 +68,22 @@ jobs:
             fi
           fi
       
-      - name: Install FreeCAD via AppImage
+      - name: Install FreeCAD headless via conda
         if: steps.step-files.outputs.has_files == 'true'
         run: |
-          # Download FreeCAD AppImage (portable, no display needed)
-          wget https://github.com/FreeCAD/FreeCAD/releases/download/${{ env.FREECAD_VERSION }}/FreeCAD_${{ env.FREECAD_VERSION }}-conda-Linux-x86_64-py311.AppImage
-          chmod +x FreeCAD_${{ env.FREECAD_VERSION }}-conda-Linux-x86_64-py311.AppImage
+          # Install miniconda
+          wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+          bash miniconda.sh -b -p $HOME/miniconda
+          export PATH="$HOME/miniconda/bin:$PATH"
           
-          # Create symlink for easy access
-          ln -s $(pwd)/FreeCAD_${{ env.FREECAD_VERSION }}-conda-Linux-x86_64-py311.AppImage /usr/local/bin/freecad
+          # Install FreeCAD headless (no GUI dependencies)
+          conda install -c conda-forge freecad -y
           
-          # Verify installation (headless mode)
-          freecad --version
+          # Add to PATH for this session
+          echo "$HOME/miniconda/bin" >> $GITHUB_PATH
+          
+          # Verify installation
+          python -c "import FreeCAD; print('FreeCAD headless installed successfully')"
       
       - name: Convert STEP to STL
         if: steps.step-files.outputs.has_files == 'true'
@@ -88,10 +91,14 @@ jobs:
           LINEAR_DEFLECTION: ${{ env.LINEAR_DEFLECTION }}
           ANGULAR_DEFLECTION: ${{ env.ANGULAR_DEFLECTION }}
         run: |
+          # Set up headless environment
+          export QT_QPA_PLATFORM=offscreen
+          export QT_X11_NO_MITSHM=1
+          
           while IFS= read -r file; do
             if [ -f "$file" ]; then
               echo "Processing: $file"
-              freecad -c .github/workflows/convert_step_to_stl.py "$file"
+              python .github/workflows/convert_step_to_stl.py "$file"
             else
               echo "Warning: File $file not found, skipping"
             fi
