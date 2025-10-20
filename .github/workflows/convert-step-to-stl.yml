@@ -15,8 +15,8 @@ env:
   LINEAR_DEFLECTION: 0.002      # Surface accuracy in mm (lower = higher quality)
   ANGULAR_DEFLECTION: 0.174533  # Angle in radians (10 degrees, lower = smoother curves)
   
-  # FreeCAD installation
-  FREECAD_PPA: ppa:freecad-maintainers/freecad-stable
+  # FreeCAD installation method
+  FREECAD_METHOD: snap
   
   # Git commit settings
   COMMIT_MESSAGE: "Auto-generate STL files from STEP files [skip ci]"
@@ -26,6 +26,8 @@ env:
 jobs:
   convert:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout repository
@@ -39,41 +41,24 @@ jobs:
             **/*.step
             **/*.stp
       
-      - name: Install FreeCAD
+      - name: Install FreeCAD via snap
         if: steps.changed-files.outputs.any_changed == 'true'
         run: |
-          sudo add-apt-repository ${{ env.FREECAD_PPA }}
-          sudo apt-get update
-          sudo apt-get install -y freecad
+          # Install FreeCAD via snap (fast and reliable)
+          sudo snap install freecad
+          
+          # Verify installation
+          freecad --version
       
       - name: Convert STEP to STL
         if: steps.changed-files.outputs.any_changed == 'true'
         env:
-          LINEAR_DEF: ${{ env.LINEAR_DEFLECTION }}
-          ANGULAR_DEF: ${{ env.ANGULAR_DEFLECTION }}
+          LINEAR_DEFLECTION: ${{ env.LINEAR_DEFLECTION }}
+          ANGULAR_DEFLECTION: ${{ env.ANGULAR_DEFLECTION }}
         run: |
-          cat > convert.py << 'EOF'
-          import sys, os
-          from FreeCAD import Part
-          from MeshPart import meshFromShape
-          
-          step_file = sys.argv[1]
-          stl_file = os.path.splitext(step_file)[0] + '.stl'
-          linear_def = float(os.environ.get('LINEAR_DEF', 0.002))
-          angular_def = float(os.environ.get('ANGULAR_DEF', 0.174533))
-          
-          print(f"Converting {step_file} to {stl_file}...")
-          print(f"  Quality: LinearDeflection={linear_def}mm, AngularDeflection={angular_def:.4f}rad")
-          
-          shape = Part.Shape()
-          shape.read(step_file)
-          mesh = meshFromShape(Shape=shape, LinearDeflection=linear_def, AngularDeflection=angular_def)
-          mesh.write(stl_file, "STL")
-          print(f"✓ Created {stl_file}")
-          EOF
-          
           for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-            freecad -c convert.py "$file"
+            echo "Processing: $file"
+            freecad -c .github/workflows/convert_step_to_stl.py "$file"
           done
       
       - name: Commit and push STL files
