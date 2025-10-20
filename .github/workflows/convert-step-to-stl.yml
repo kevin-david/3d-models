@@ -68,27 +68,15 @@ jobs:
             fi
           fi
       
-      - name: Install OpenCASCADE via conda
+      - name: Install OpenSCAD
         if: steps.step-files.outputs.has_files == 'true'
         run: |
-          # Install miniconda
-          wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-          bash miniconda.sh -b -p $HOME/miniconda
-          export PATH="$HOME/miniconda/bin:$PATH"
-          
-          # Create environment with specific Python version
-          conda create -n freecad python=3.10 -y
-          source activate freecad
-          
-          # Install OpenCASCADE and pythonocc via conda-forge
-          conda install -c conda-forge pythonocc-core -y
-          
-          # Add to PATH for this session
-          echo "$HOME/miniconda/bin" >> $GITHUB_PATH
-          echo "source activate freecad" >> $HOME/.bashrc
+          # Install OpenSCAD (simple, reliable, available in repos)
+          sudo apt-get update
+          sudo apt-get install -y openscad
           
           # Verify installation
-          python -c "from OCC.Core import STEPControl_Reader; print('OpenCASCADE installed successfully')"
+          openscad --version
       
       - name: Convert STEP to STL
         if: steps.step-files.outputs.has_files == 'true'
@@ -96,13 +84,19 @@ jobs:
           LINEAR_DEFLECTION: ${{ env.LINEAR_DEFLECTION }}
           ANGULAR_DEFLECTION: ${{ env.ANGULAR_DEFLECTION }}
         run: |
-          # Activate conda environment
-          source $HOME/miniconda/bin/activate freecad
-          
           while IFS= read -r file; do
             if [ -f "$file" ]; then
               echo "Processing: $file"
-              python .github/workflows/convert_step_to_stl.py "$file"
+              # Convert STEP to STL using OpenSCAD
+              stl_file=$(echo "$file" | sed 's/\.step$/.stl/' | sed 's/\.stp$/.stl/')
+              echo "Converting $file to $stl_file"
+              
+              # OpenSCAD can import STEP files and export STL
+              if openscad -o "$stl_file" -D "import(\"$file\");" /dev/null; then
+                echo "✓ Successfully created $stl_file"
+              else
+                echo "✗ Failed to create $stl_file"
+              fi
             else
               echo "Warning: File $file not found, skipping"
             fi
