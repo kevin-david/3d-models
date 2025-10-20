@@ -68,15 +68,19 @@ jobs:
             fi
           fi
       
-      - name: Install OpenCASCADE and pythonocc
+      - name: Install OpenCASCADE via conda
         if: steps.step-files.outputs.has_files == 'true'
         run: |
-          # Install OpenCASCADE (the engine behind STEP files)
-          sudo apt-get update
-          sudo apt-get install -y libopencascade-dev python3-opencascade
+          # Install miniconda
+          wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+          bash miniconda.sh -b -p $HOME/miniconda
+          export PATH="$HOME/miniconda/bin:$PATH"
           
-          # Install pythonocc-core for Python bindings
-          pip install pythonocc-core
+          # Install OpenCASCADE and pythonocc via conda-forge
+          conda install -c conda-forge pythonocc-core -y
+          
+          # Add to PATH for this session
+          echo "$HOME/miniconda/bin" >> $GITHUB_PATH
           
           # Verify installation
           python -c "from OCC.Core import STEPControl_Reader; print('OpenCASCADE installed successfully')"
