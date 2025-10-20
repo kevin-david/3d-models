@@ -76,11 +76,16 @@ jobs:
           bash miniconda.sh -b -p $HOME/miniconda
           export PATH="$HOME/miniconda/bin:$PATH"
           
+          # Create environment with specific Python version
+          conda create -n freecad python=3.10 -y
+          source activate freecad
+          
           # Install OpenCASCADE and pythonocc via conda-forge
           conda install -c conda-forge pythonocc-core -y
           
           # Add to PATH for this session
           echo "$HOME/miniconda/bin" >> $GITHUB_PATH
+          echo "source activate freecad" >> $HOME/.bashrc
           
           # Verify installation
           python -c "from OCC.Core import STEPControl_Reader; print('OpenCASCADE installed successfully')"
@@ -91,9 +96,8 @@ jobs:
           LINEAR_DEFLECTION: ${{ env.LINEAR_DEFLECTION }}
           ANGULAR_DEFLECTION: ${{ env.ANGULAR_DEFLECTION }}
         run: |
-          # Set up headless environment
-          export QT_QPA_PLATFORM=offscreen
-          export QT_X11_NO_MITSHM=1
+          # Activate conda environment
+          source $HOME/miniconda/bin/activate freecad
           
           while IFS= read -r file; do
             if [ -f "$file" ]; then
